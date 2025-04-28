@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CAFE BOM Maintenance Tool</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    /* Syntax highlighting */
+    .code span.define {
+      color: #1E40AF; /* Blue for 'define' */
+    }
+    .code span.variable {
+      color: #D97706; /* Orange for variables */
+    }
+    .code span.domain {
+      color: #10B981; /* Green for domains */
+    }
+    .code span.field {
+      color: #D1D5DB; /* Light gray for fields */
+    }
+    .code span.other {
+      color: #FFFFFF; /* White for everything else */
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-300">
+
+  <div class="max-w-4xl mx-auto p-6">
+    <!-- Title -->
+    <h1 class="text-4xl font-bold mb-4 text-slate-500">CAFE BOM Maintenance Tool</h1>
+    <p class="text-lg mb-8">Component Attribute Filtering Engine (CAFE BOM) — Automating BOM attribute management and maintenance for ERP systems.</p>
+
+    <!-- High-Level Overview -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-semibold mb-4">Overview</h2>
+      <p class="mb-4">
+        The CAFE BOM Maintenance Tool was designed to automate the maintenance and updating of Bill of Materials (BOM) attributes within a legacy ERP system. Using CyberQuery (CQ) scripting and CLI commands, this tool dynamically builds queries based on user inputs, restructures BOM attribute data, and generates modular outputs to streamline manual processes. 
+      </p>
+      <p>
+        CAFE BOM significantly reduced human error, improved efficiency, and enabled a scalable structure for handling complex BOM attribute changes.
+      </p>
+    </section>
+
+    <!-- Flowchart -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-semibold mb-4">System Flowchart</h2>
+      <div class="bg-gray-800 p-6 rounded-lg shadow-md">
+        <img src="images/cafe-bom-flowchart.png" alt="CAFE BOM Flowchart" class="w-full">
+      </div>
+    </section>
+
+    <!-- Code Snippets and Explanations -->
+    <section>
+        <h2 class="text-2xl font-semibold mb-4">Key Code Snippets</h2>
+      
+        <div class="mb-8">
+          <h3 class="text-xl font-bold mb-2">1. Branch List Creation</h3>
+          <pre class="bg-gray-800 text-green-300 p-1 rounded-md overflow-x-auto"><code>
+      list/domain="company_prof"/nobanner/nodefaults
+        if xbranch_max = "N" then {'"' + branch_id + '",'}
+        cli mv branch_list.cq branch_list.inc
+          </code></pre>
+          <p class="mt-2">This snippet dynamically generates a filtered list of valid branch IDs for user selection, reducing manual errors.</p>
+        </div>
+      
+        <div class="mb-8">
+          <h3 class="text-xl font-bold mb-2">2. User-Defined Parameters</h3>
+          <pre class="bg-gray-800 text-green-300 p-1 rounded-md overflow-x-auto"><code>
+      define number xstart_bom = parameter/prompt="Enter Starting BOM #"
+      define number xend_bom = parameter/prompt="Enter Ending BOM #"
+      define string xbranch = parameter/prompt="Enter CORP Branch" valid include "branch_list.inc"
+          </code></pre>
+          <p class="mt-2">Collects user input at runtime, defining BOM range and branch filters for targeted query execution.</p>
+        </div>
+      
+        <div class="mb-8">
+          <h3 class="text-xl font-bold mb-2">3. Temporary BOM Attribute Table Creation</h3>
+          <pre class="bg-gray-800 text-green-300 p-1 rounded-md overflow-x-auto"><code>
+      define file xbom_detail = access bom_detail,
+        set system_id = xbranch,
+        set bom_id = attr_item:bom_id,
+        set sequence = attr_item:bom_seq
+      
+      list/domain="attr_item"/hold="hf_bom_attribute"
+        attr_item:system_id/keyelement=1.4
+        attr_item:bom_id/keyelement=1.1
+        attr_item:bom_seq/keyelement=1.2
+        xbom_detail:item/keyelement=3.1
+        xitem:item_ptr/keyelement=2.1
+        xseq/name="sequence"/keyelement=1.3
+        if attr_item:attr_type = "I" then "Item" else if attr_item:attr_type = "B" then "BOM"/name="attr_type"
+          </code></pre>
+          <p class="mt-2">Creates a temporary table to store structured BOM attributes, establishing key relationships and conditional types.</p>
+        </div>
+      
+        <div class="mb-8">
+          <h3 class="text-xl font-bold mb-2">4. Temporary Item Attribute Table Creation</h3>
+          <pre class="bg-gray-800 text-green-300 p-1 rounded-md overflow-x-auto"><code>
+      define access hf_bom_attribute,
+        set item_ptr = attr_item:item_ptr
+      
+      list/domain="attr_item"
+        item:item
+        hf_bom_attribute:bom_id
+        hf_bom_attribute:bom_seq
+        if attr_item:attr_type = "I" then "Item" else if attr_item:attr_type = "B" then "BOM"/name="attr_type"
+        attr_label:name/name="attr_label"
+        attr_valdtl:label_value/name="attr_value"
+          </code></pre>
+          <p class="mt-2">Expands attribute detail tables by merging BOM structure and item-specific attribute data.</p>
+        </div>
+      
+        <div class="mb-8">
+          <h3 class="text-xl font-bold mb-2">5. Modular Output File Creation</h3>
+          <pre class="bg-gray-800 text-green-300 p-1 rounded-md overflow-x-auto"><code>
+        'xattribute' + str(hf_attribute:sequence) + ':attr_label/align=attr_label' + str(hf_attribute:sequence)/newline
+        'xattribute' + str(hf_attribute:sequence) + ':attr_value/align=attr_value' + str(hf_attribute:sequence)
+        cli mv details.cq details.inc
+
+        'xattribute' + str(hf_attribute:sequence) + ':attr_label/heading="attr_label' + str(hf_attribute:sequence) + '"/name="attr_label' + str(hf_attribute:sequence) + '"'/newline
+        'xattribute' + str(hf_attribute:sequence) + ':attr_value/heading="attr_value' + str(hf_attribute:sequence) + '"/name="attr_value' + str(hf_attribute:sequence) + '"'
+        cli mv details_heading.cq details_heading.inc
+          </code></pre>
+          <p class="mt-2">Generates modular `.inc` files for dynamic field alignment and custom attribute headings, enabling scalable report design.</p>
+        </div>
+      
+        <div class="mb-8">
+          <h3 class="text-xl font-bold mb-2">6. Final Output File Creation</h3>
+          <pre class="bg-gray-800 text-green-300 p-1 rounded-md overflow-x-auto"><code>
+      include "details_heading.inc"
+
+      hf_attribute:bom_id/nocommas
+      hf_attribute:bom_seq/nocommas
+      hf_attribute:item
+      hf_attribute:item_desc
+      hf_attribute:qty/decimalplaces = 4
+      hf_attribute:next_bom/nocommas
+      if hf_attribute:print_flag = 1 then "YES" else "NO"/width = 12
+      if hf_attribute:prompt_for_message = 1 then "YES" else "NO"/width = 20
+      hf_attribute:hdr_desc
+
+      include "details.inc"
+          </code></pre>
+          <p class="mt-2">Finalizes output structure by merging computed fields, user prompts, and modular inclusions into a clean BOM export file.</p>
+        </div>
+      
+      </section>      
+
+    <!-- What's Different Section -->
+    <section class="mb-12">
+        <h2 class="text-2xl font-semibold mb-4">What's Different and Innovative?</h2>
+        <div class="bg-gray-800 p-6 rounded-lg shadow-md">
+          <ul class="list-disc list-inside space-y-2">
+            <li><strong>Combines</strong> BOM and item attributes into a single flattened, readable format.</li>
+            <li><strong>One row per sequence</strong> — all attributes displayed horizontally for easy scanning and editing.</li>
+            <li><strong>Editable in Excel</strong> and reversible to system-friendly vertical format using a macro.</li>
+            <li><strong>Dynamically adapts</strong> to new BOMs or attribute changes without code rewrites.</li>
+            <li><strong>Eliminates redundancy</strong> and dramatically improves update efficiency and user readability.</li>
+          </ul>
+        </div>
+      </section>
+  
+    </div>
+  
+  </body>
+  </html>
